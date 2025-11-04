@@ -3552,6 +3552,65 @@ function SecondsInSystemClock
 }
 
 <#
+    .SYNOPSIS
+    24-hour format for the taskbar clock
+
+    .PARAMETER Enable
+    Enable 24-hour format on the taskbar clock
+
+    .PARAMETER Disable
+    Disable 24-hour format on the taskbar clock
+
+    .EXAMPLE
+    SystemClock24HourFormat -Enable
+
+    .EXAMPLE
+    SystemClock24HourFormat -Disable
+
+    .NOTES
+    Current user
+#>
+function SystemClock24HourFormat {
+    param (
+        [Parameter(
+            Mandatory = $true,
+            ParameterSetName = "Enable"
+        )]
+        [switch] $Enable,
+
+        [Parameter(
+            Mandatory = $true,
+            ParameterSetName = "Disable"
+        )]
+        [switch] $Disable
+    )
+
+    switch ($PSCmdlet.ParameterSetName) {
+        "Enable" {
+            # Use 24-hour format (remove AM/PM)
+            New-ItemProperty -Path "HKCU:\Control Panel\International" -Name iTime -PropertyType String -Value "1" -Force
+            New-ItemProperty -Path "HKCU:\Control Panel\International" -Name sShortTime -PropertyType String -Value "HH:mm" -Force
+            New-ItemProperty -Path "HKCU:\Control Panel\International" -Name sTimeFormat -PropertyType String -Value "HH:mm:ss" -Force
+        }
+"Disable" {
+			# use vanilla dotnet primitives to get the current culture's time format
+			# this is to ensure that disabling the 24-hour format returns to system defaults
+            $culture = [System.Globalization.CultureInfo]::CurrentCulture
+            $shortTime = $culture.DateTimeFormat.ShortTimePattern
+            $longTime = $culture.DateTimeFormat.LongTimePattern
+            $is12Hour = $shortTime -match "[ht]{1,2}" -and $shortTime -match "tt"
+
+            # iTime: 1 = 24h, 0 = 12h (only if AM/PM exists)
+            $iTimeValue = if ($is12Hour) { "0" } else { "1" }
+
+            New-ItemProperty -Path $intlKey -Name iTime -PropertyType String -Value $iTimeValue -Force
+            New-ItemProperty -Path $intlKey -Name sShortTime -PropertyType String -Value $shortTime -Force
+            New-ItemProperty -Path $intlKey -Name sTimeFormat -PropertyType String -Value $longTime -Force
+        }
+    }
+}
+
+<#
 	.SYNOPSIS
 	Combine taskbar buttons and hide labels
 
